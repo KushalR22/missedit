@@ -4,11 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="MissedIt — catch up on overwhelming chats in seconds. AI summaries, action items, deadlines, and mentions you missed." />
-  <meta name="theme-color" content="#0b7d5a" />
+  <meta name="theme-color" content="#0f1729" />
   <title>MissedIt — What Did I Miss?</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📨</text></svg>" />
 </head>
@@ -20,10 +20,11 @@
   <main id="login-screen" class="login" aria-labelledby="login-title">
     <div class="login-card">
       <div class="brand">
-        <span class="brand-mark" aria-hidden="true">📨</span>
-        <h1 id="login-title" class="brand-name">MissedIt</h1>
+        <span class="brand-mark" aria-hidden="true">M</span>
+        <span class="brand-name">Missed<b>It</b></span>
       </div>
-      <p class="login-tagline">Catch up on any chat in seconds. See what you <em>actually</em> missed.</p>
+      <h1 id="login-title" class="login-title display">What did you miss?</h1>
+      <p class="login-tagline">Turn an overwhelming chat into a clear, sorted brief — in seconds.</p>
 
       <form id="login-form" novalidate>
         <div class="field">
@@ -41,37 +42,42 @@
 
       <!-- Evaluator credentials shown right on screen so judges can test instantly -->
       <div id="login-hint" class="demo-hint">
-        <strong>Evaluator / demo login</strong>
+        <span class="demo-hint-label">Evaluator / demo login</span>
         <div class="demo-creds">
-          <code>demo</code> <span>/</span> <code>demo123</code>
+          <code>demo</code> <span aria-hidden="true">/</span> <code>demo123</code>
         </div>
         <button type="button" id="fill-demo" class="btn btn-ghost btn-sm">Fill &amp; sign in</button>
       </div>
     </div>
-    <footer class="login-footer">
-      <span>🔒 Local-first: your conversations stay in your browser.</span>
-    </footer>
+    <p class="login-foot">🔒 Local-first — your conversations stay in your browser.</p>
   </main>
 
   <!-- ===================== APP SCREEN ===================== -->
   <div id="app-screen" class="app" hidden>
     <header class="app-header">
       <div class="brand brand-sm">
-        <span class="brand-mark" aria-hidden="true">📨</span>
-        <span class="brand-name">MissedIt</span>
+        <span class="brand-mark" aria-hidden="true">M</span>
+        <span class="brand-name">Missed<b>It</b></span>
       </div>
       <div class="header-right">
         <span id="welcome" class="welcome"></span>
-        <button id="theme-toggle" class="btn btn-ghost btn-icon" aria-label="Toggle dark mode" title="Toggle theme">🌙</button>
+        <button id="theme-toggle" class="btn btn-ghost btn-icon" aria-label="Switch to dark mode" title="Toggle theme">🌙</button>
         <button id="logout" class="btn btn-ghost btn-sm">Log out</button>
       </div>
     </header>
 
+    <section class="hero" aria-labelledby="hero-title">
+      <h1 id="hero-title" class="hero-title display">Catch up on the chaos,<br><span class="accent">sorted by what matters.</span></h1>
+      <p class="hero-sub">Paste a long or unread conversation. MissedIt pulls out the summary, your action items, deadlines, and mentions — ranked by urgency.</p>
+    </section>
+
     <main id="main" class="app-main">
       <!-- INPUT PANEL -->
       <section class="panel input-panel" aria-labelledby="input-title">
-        <h2 id="input-title">Paste a conversation</h2>
-        <p class="panel-sub">Drop in a group chat, email thread, or any messages you haven't read.</p>
+        <div class="panel-head">
+          <h2 id="input-title" class="display">The conversation</h2>
+          <p class="panel-sub">A group chat, email thread, or any messages you haven't read.</p>
+        </div>
 
         <div class="field">
           <label for="your-name">Your name in the chat <span class="optional">(optional — helps find your mentions)</span></label>
@@ -79,7 +85,7 @@
         </div>
 
         <div class="field">
-          <label for="conversation">Conversation</label>
+          <label for="conversation">Messages</label>
           <textarea id="conversation" rows="12"
             placeholder="Paste messages here, e.g.&#10;Arjun: Standup moved to 10am tomorrow&#10;Priya: @you can you send the slides before then?&#10;..."></textarea>
           <div class="char-count"><span id="char-count">0</span> characters</div>
@@ -88,13 +94,13 @@
         <div class="samples" role="group" aria-label="Load a sample conversation">
           <span class="samples-label" aria-hidden="true">Or try a sample:</span>
           <button class="chip" data-sample="workgroup" type="button" aria-label="Load sample: work group chat">Work group chat</button>
-          <button class="chip" data-sample="project" type="button" aria-label="Load sample: project deadline thread">Project deadline thread</button>
-          <button class="chip" data-sample="family" type="button" aria-label="Load sample: busy family group">Busy family group</button>
+          <button class="chip" data-sample="project" type="button" aria-label="Load sample: project deadline thread">Project deadline</button>
+          <button class="chip" data-sample="family" type="button" aria-label="Load sample: busy family group">Family group</button>
         </div>
 
         <div class="actions">
           <button id="analyze-btn" class="btn btn-primary">
-            <span class="btn-label">✨ Analyze what I missed</span>
+            <span class="btn-label">Analyze what I missed</span>
             <span class="btn-spinner" hidden aria-hidden="true"></span>
           </button>
           <button id="clear-btn" class="btn btn-ghost">Clear</button>
@@ -103,13 +109,16 @@
       </section>
 
       <!-- RESULTS PANEL -->
-      <section class="panel results-panel" aria-labelledby="results-title" aria-live="polite">
-        <h2 id="results-title">What you missed</h2>
+      <section class="panel results-panel is-sticky" aria-labelledby="results-title" aria-live="polite">
+        <div class="panel-head">
+          <h2 id="results-title" class="display">Your brief</h2>
+          <p class="panel-sub">What you'd want to know before scrolling back.</p>
+        </div>
 
         <!-- Empty state -->
         <div id="empty-state" class="empty-state">
           <span class="empty-emoji" aria-hidden="true">🗂️</span>
-          <p>Your summary, action items, deadlines, and mentions will appear here.</p>
+          <p>Your summary, action items, deadlines and mentions land here — ranked by what needs you first.</p>
         </div>
 
         <!-- Loading state. Skeleton bars are decorative so they're hidden from

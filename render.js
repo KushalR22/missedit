@@ -14,15 +14,21 @@ function escapeHtml(str) {
     .replace(/'/g, "&#39;");
 }
 
-const PRIORITY_LABEL = { high: "High priority", medium: "Worth a look", low: "Low priority" };
-const PRIORITY_ICON = { high: "🔴", medium: "🟠", low: "🟢" };
+const VERDICT = {
+  high:   { label: "Needs you now",  note: "There's urgent, time-sensitive stuff in here.", badge: "!" },
+  medium: { label: "Worth a look",   note: "A few things to handle, nothing on fire.",       badge: "~" },
+  low:    { label: "You're caught up", note: "Mostly chatter — nothing urgent waiting on you.", badge: "✓" },
+};
 
 // Each result group is a self-contained section of the report, so it's an
 // <article> labelled by its own heading — correct landmark semantics for AT.
-function group(title, icon, innerHtml) {
+// `count` shows a pill with how many items the group found (null = no pill).
+function group(title, icon, innerHtml, count) {
   const headingId = "grp-" + title.toLowerCase().replace(/[^a-z]+/g, "-");
+  const countPill = count != null && count > 0
+    ? `<span class="group-count">${count}</span>` : "";
   return `<article class="result-group" aria-labelledby="${headingId}">
-    <h3 id="${headingId}"><span aria-hidden="true">${icon}</span> ${escapeHtml(title)}</h3>
+    <h3 id="${headingId}"><span class="group-icon" aria-hidden="true">${icon}</span> ${escapeHtml(title)}${countPill}</h3>
     ${innerHtml}
   </article>`;
 }
@@ -34,71 +40,80 @@ function emptyNote(text) {
 export function renderResults(data) {
   const parts = [];
 
-  // Overall priority banner
-  const p = data.priority || "low";
-  parts.push(`<div class="priority-banner ${p}">
-    <span aria-hidden="true">${PRIORITY_ICON[p]}</span>
-    <span>${PRIORITY_LABEL[p]} — here's what stands out.</span>
+  // --- The verdict: the one bold moment of the report ---
+  const p = ["high", "medium", "low"].includes(data.priority) ? data.priority : "low";
+  const v = VERDICT[p];
+  parts.push(`<div class="verdict ${p}">
+    <span class="verdict-badge" aria-hidden="true">${v.badge}</span>
+    <span class="verdict-text"><strong>${v.label}</strong><span>${escapeHtml(v.note)}</span></span>
   </div>`);
 
-  // Summary
+  // --- Summary ---
   parts.push(group("Summary", "📝",
     `<p class="summary-text">${escapeHtml(data.summary)}</p>`));
 
-  // Action items
+  // --- Action items (with a colored urgency rail + badge) ---
   if (data.actionItems.length) {
     const items = data.actionItems.map((a) => `
       <li class="list-item">
-        <span class="dot ${a.priority}" aria-hidden="true"></span>
+        <span class="rail ${a.priority}" aria-hidden="true"></span>
         <div class="item-body">
           <div class="item-main">${escapeHtml(a.text)}
-            <span class="badge ${a.priority}">${escapeHtml(a.priority)} priority</span>
+            <span class="badge ${a.priority}">${escapeHtml(a.priority)}</span>
           </div>
-          <div class="item-meta">Owner: ${escapeHtml(a.owner)}</div>
+          <div class="item-meta">Owner: <span class="owner">${escapeHtml(a.owner)}</span></div>
         </div>
       </li>`).join("");
-    parts.push(group("Action items", "✅", `<ul class="list">${items}</ul>`));
+    parts.push(group("Action items", "✅", `<ul class="list">${items}</ul>`, data.actionItems.length));
   } else {
-    parts.push(group("Action items", "✅", emptyNote("No tasks were assigned.")));
+    parts.push(group("Action items", "✅", emptyNote("No tasks were assigned to anyone.")));
   }
 
-  // Deadlines
+  // --- Deadlines ---
   if (data.deadlines.length) {
     const items = data.deadlines.map((d) => `
-      <div class="pill deadline">${escapeHtml(d.what)} —
-        <span class="when">${escapeHtml(d.when)}</span></div>`).join("");
-    parts.push(group("Deadlines", "⏰", `<div class="pill-list">${items}</div>`));
+      <div class="pill deadline">
+        <span>${escapeHtml(d.what)}</span>
+        <span class="pill-when">${escapeHtml(d.when)}</span>
+      </div>`).join("");
+    parts.push(group("Deadlines", "⏰", `<div class="pill-list">${items}</div>`, data.deadlines.length));
   } else {
     parts.push(group("Deadlines", "⏰", emptyNote("No deadlines mentioned.")));
   }
 
-  // Mentions
+  // --- Mentions ---
   if (data.mentions.length) {
     const items = data.mentions.map((m) => `
-      <div class="pill mention"><strong>${escapeHtml(m.who)}</strong> — ${escapeHtml(m.context)}</div>`).join("");
-    parts.push(group("Mentions of you", "👋", `<div class="pill-list">${items}</div>`));
+      <div class="pill mention">
+        <span class="pill-key">${escapeHtml(m.who)}</span>
+        <span>${escapeHtml(m.context)}</span>
+      </div>`).join("");
+    parts.push(group("Mentions of you", "👋", `<div class="pill-list">${items}</div>`, data.mentions.length));
   } else {
     parts.push(group("Mentions of you", "👋", emptyNote("You weren't directly mentioned.")));
   }
 
-  // Decisions
+  // --- Decisions ---
   if (data.decisions.length) {
-    const items = data.decisions.map((d) => `<li class="list-item"><div class="item-body"><div class="item-main">${escapeHtml(d)}</div></div></li>`).join("");
-    parts.push(group("Decisions made", "🤝", `<ul class="list">${items}</ul>`));
+    const items = data.decisions.map((d) =>
+      `<li class="list-item"><div class="item-body"><div class="item-main">${escapeHtml(d)}</div></div></li>`).join("");
+    parts.push(group("Decisions made", "🤝", `<ul class="list">${items}</ul>`, data.decisions.length));
   } else {
-    parts.push(group("Decisions made", "🤝", emptyNote("No clear decisions found.")));
+    parts.push(group("Decisions made", "🤝", emptyNote("No clear decisions were made.")));
   }
 
-  // Key messages
+  // --- Key messages (only when present) ---
   if (data.keyMessages.length) {
     const items = data.keyMessages.map((k) => `
       <li class="list-item">
         <div class="item-body">
-          <div class="item-main">"${escapeHtml(k.text)}"</div>
-          <div class="item-meta">— ${escapeHtml(k.from)} · ${escapeHtml(k.why)}</div>
+          <div class="quote">
+            <p>${escapeHtml(k.text)}</p>
+            <div class="cite">${escapeHtml(k.from)} · ${escapeHtml(k.why)}</div>
+          </div>
         </div>
       </li>`).join("");
-    parts.push(group("Key messages", "💬", `<ul class="list">${items}</ul>`));
+    parts.push(group("Key messages", "💬", `<ul class="list">${items}</ul>`, data.keyMessages.length));
   }
 
   return parts.join("");

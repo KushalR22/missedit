@@ -45,7 +45,9 @@ function applyTheme(theme) {
   } else {
     document.documentElement.removeAttribute("data-theme");
   }
-  themeToggle.textContent = isDark() ? "☀️" : "🌙";
+  const dark = isDark();
+  themeToggle.textContent = dark ? "☀️" : "🌙";
+  themeToggle.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
 }
 function isDark() {
   const attr = document.documentElement.getAttribute("data-theme");
@@ -163,6 +165,10 @@ function showResults(data) {
   resultsEl.innerHTML = renderResults(data);
   resultsEl.hidden = false;
   addCopyButton(data);
+  // one orchestrated reveal of the brief (respects reduced-motion via CSS)
+  resultsEl.classList.remove("entering");
+  void resultsEl.offsetWidth; // restart the animation
+  resultsEl.classList.add("entering");
   if (data._model) modelNote.textContent = `Analyzed with ${data._model}`;
 }
 
