@@ -1,0 +1,14 @@
+{
+  "name": "missedit",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MissedIt — an AI micro-app that tells you what you missed in overwhelming chats. Built for ProtocolX.",
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev",
+    "start": "vercel dev"
+  },
+  "keywords": ["ai", "gemini", "chat-summary", "productivity", "protocolx"],
+  "author": "",
+  "license": "MIT"
+}
