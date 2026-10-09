@@ -45,9 +45,7 @@ function applyTheme(theme) {
   } else {
     document.documentElement.removeAttribute("data-theme");
   }
-  const dark = isDark();
-  themeToggle.textContent = dark ? "☀️" : "🌙";
-  themeToggle.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
+  themeToggle.textContent = isDark() ? "☀️" : "🌙";
 }
 function isDark() {
   const attr = document.documentElement.getAttribute("data-theme");
@@ -165,62 +163,7 @@ function showResults(data) {
   resultsEl.innerHTML = renderResults(data);
   resultsEl.hidden = false;
   addCopyButton(data);
-  wireInteractions();
-  // one orchestrated reveal of the brief (respects reduced-motion via CSS)
-  resultsEl.classList.remove("entering");
-  void resultsEl.offsetWidth; // restart the animation
-  resultsEl.classList.add("entering");
   if (data._model) modelNote.textContent = `Analyzed with ${data._model}`;
-}
-
-// Make the brief interactive: filter chips, collapsible sections, task progress.
-function wireInteractions() {
-  // 1) Stat chips filter which sections are shown
-  const chips = resultsEl.querySelectorAll(".stat-chip");
-  chips.forEach((chip) => {
-    chip.addEventListener("click", () => {
-      chips.forEach((c) => c.classList.toggle("is-active", c === chip));
-      const want = chip.dataset.stat;
-      resultsEl.querySelectorAll(".result-group").forEach((g) => {
-        const f = g.dataset.filter;
-        // "all" shows everything; otherwise show summary + the matching group
-        const show = want === "all" || f === want || g.querySelector("#grp-summary");
-        g.hidden = !(want === "all" || f === want);
-        if (g.querySelector("#grp-summary")) g.hidden = false; // always keep summary
-      });
-    });
-  });
-
-  // 2) Collapsible sections
-  resultsEl.querySelectorAll(".group-head").forEach((head) => {
-    head.addEventListener("click", () => {
-      const open = head.getAttribute("aria-expanded") === "true";
-      head.setAttribute("aria-expanded", String(!open));
-      head.closest(".result-group").classList.toggle("collapsed", open);
-    });
-  });
-
-  // 3) Checking off tasks updates a little progress meter
-  const checks = resultsEl.querySelectorAll(".task-check");
-  const meter = document.createElement("div");
-  if (checks.length) {
-    meter.className = "task-progress";
-    const update = () => {
-      const done = resultsEl.querySelectorAll(".task-check:checked").length;
-      const total = checks.length;
-      const pct = Math.round((done / total) * 100);
-      meter.innerHTML = `<div class="tp-bar"><span style="width:${pct}%"></span></div>
-        <span class="tp-label">${done} of ${total} done</span>`;
-    };
-    checks.forEach((c) =>
-      c.addEventListener("change", () => {
-        c.closest(".task").classList.toggle("is-done", c.checked);
-        update();
-      })
-    );
-    const tasksGroup = resultsEl.querySelector('[data-filter="tasks"] .group-body');
-    if (tasksGroup) { tasksGroup.prepend(meter); update(); }
-  }
 }
 
 function addCopyButton(data) {

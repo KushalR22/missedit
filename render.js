@@ -1,9 +1,8 @@
 // render.js
 // ---------------------------------------------------------------------------
-// Builds the interactive "brief" from the structured analysis object.
-// Pure DOM-string construction + a small set of data attributes that app.js
-// wires up for interactivity (filtering, checking off tasks, collapsing).
-// All user/AI text is HTML-escaped before it ever touches innerHTML (security).
+// Pure rendering: takes the structured analysis object and builds DOM for it.
+// Separated from logic so it's easy to read, test, and restyle.
+// All user/AI text goes through escapeHtml to prevent HTML injection (security).
 // ---------------------------------------------------------------------------
 
 function escapeHtml(str) {
@@ -15,24 +14,16 @@ function escapeHtml(str) {
     .replace(/'/g, "&#39;");
 }
 
-const VERDICT = {
-  high:   { label: "Needs you now",    note: "Time-sensitive things are waiting on you.", icon: "!" },
-  medium: { label: "Worth a look",     note: "A few things to handle — nothing on fire.",  icon: "~" },
-  low:    { label: "You're caught up",  note: "Mostly chatter. Nothing urgent for you.",    icon: "✓" },
-};
+const PRIORITY_LABEL = { high: "High priority", medium: "Worth a look", low: "Low priority" };
+const PRIORITY_ICON = { high: "🔴", medium: "🟠", low: "🟢" };
 
-function section({ id, title, icon, count, filter, body }) {
-  const headingId = "grp-" + id;
-  const countPill = count > 0 ? `<span class="group-count">${count}</span>` : "";
-  // data-filter lets the stat chips show/hide whole sections
-  return `<article class="result-group" data-filter="${filter || ""}" aria-labelledby="${headingId}">
-    <button class="group-head" aria-expanded="true" aria-controls="body-${id}">
-      <span class="group-icon" aria-hidden="true">${icon}</span>
-      <h3 id="${headingId}">${escapeHtml(title)}</h3>
-      ${countPill}
-      <span class="group-chevron" aria-hidden="true">⌄</span>
-    </button>
-    <div class="group-body" id="body-${id}">${body}</div>
+// Each result group is a self-contained section of the report, so it's an
+// <article> labelled by its own heading — correct landmark semantics for AT.
+function group(title, icon, innerHtml) {
+  const headingId = "grp-" + title.toLowerCase().replace(/[^a-z]+/g, "-");
+  return `<article class="result-group" aria-labelledby="${headingId}">
+    <h3 id="${headingId}"><span aria-hidden="true">${icon}</span> ${escapeHtml(title)}</h3>
+    ${innerHtml}
   </article>`;
 }
 
@@ -40,147 +31,106 @@ function emptyNote(text) {
   return `<p class="group-empty">${escapeHtml(text)}</p>`;
 }
 
-// Build the live stat row — tappable chips that filter the brief.
-function statRow(data) {
-  const stats = [
-    { key: "all",      label: "Everything", n: null, icon: "✦" },
-    { key: "tasks",    label: "Tasks",      n: data.actionItems.length, icon: "✅" },
-    { key: "deadlines",label: "Deadlines",  n: data.deadlines.length,   icon: "⏰" },
-    { key: "mentions", label: "Mentions",   n: data.mentions.length,    icon: "👋" },
-  ];
-  const chips = stats.map((s) => {
-    const num = s.n === null ? "" : `<span class="stat-n">${s.n}</span>`;
-    return `<button class="stat-chip${s.key === "all" ? " is-active" : ""}" data-stat="${s.key}" type="button">
-      <span class="stat-ic" aria-hidden="true">${s.icon}</span>${num}<span class="stat-lb">${s.label}</span>
-    </button>`;
-  }).join("");
-  return `<div class="stat-row" role="group" aria-label="Filter the brief">${chips}</div>`;
-}
-
 export function renderResults(data) {
-  const p = ["high", "medium", "low"].includes(data.priority) ? data.priority : "low";
-  const v = VERDICT[p];
   const parts = [];
 
-  // --- Verdict: the hero moment ---
-  parts.push(`<div class="verdict ${p}">
-    <span class="verdict-badge" aria-hidden="true">${v.icon}</span>
-    <div class="verdict-text"><strong>${v.label}</strong><span>${escapeHtml(v.note)}</span></div>
+  // Overall priority banner
+  const p = data.priority || "low";
+  parts.push(`<div class="priority-banner ${p}">
+    <span aria-hidden="true">${PRIORITY_ICON[p]}</span>
+    <span>${PRIORITY_LABEL[p]} — here's what stands out.</span>
   </div>`);
 
-  // --- Live stat / filter row ---
-  parts.push(statRow(data));
+  // Summary
+  parts.push(group("Summary", "📝",
+    `<p class="summary-text">${escapeHtml(data.summary)}</p>`));
 
-  // --- Summary ---
-  parts.push(section({
-    id: "summary", title: "Summary", icon: "📝", count: 0, filter: "",
-    body: `<p class="summary-text">${escapeHtml(data.summary)}</p>`,
-  }));
-
-  // --- Action items (checkable) ---
+  // Action items
   if (data.actionItems.length) {
-    const items = data.actionItems.map((a, i) => `
-      <li class="task" data-prio="${a.priority}">
-        <input type="checkbox" class="task-check" id="task-${i}" aria-label="Mark done: ${escapeHtml(a.text)}" />
-        <label for="task-${i}" class="task-box" aria-hidden="true"></label>
-        <div class="task-body">
-          <div class="task-text">${escapeHtml(a.text)}</div>
-          <div class="task-meta">
-            <span class="badge ${a.priority}">${escapeHtml(a.priority)}</span>
-            <span class="owner">· ${escapeHtml(a.owner)}</span>
+    const items = data.actionItems.map((a) => `
+      <li class="list-item">
+        <span class="dot ${a.priority}" aria-hidden="true"></span>
+        <div class="item-body">
+          <div class="item-main">${escapeHtml(a.text)}
+            <span class="badge ${a.priority}">${escapeHtml(a.priority)} priority</span>
           </div>
+          <div class="item-meta">Owner: ${escapeHtml(a.owner)}</div>
         </div>
       </li>`).join("");
-    parts.push(section({
-      id: "tasks", title: "Action items", icon: "✅", count: data.actionItems.length, filter: "tasks",
-      body: `<ul class="task-list">${items}</ul>`,
-    }));
+    parts.push(group("Action items", "✅", `<ul class="list">${items}</ul>`));
   } else {
-    parts.push(section({ id: "tasks", title: "Action items", icon: "✅", count: 0, filter: "tasks",
-      body: emptyNote("No tasks were assigned to anyone.") }));
+    parts.push(group("Action items", "✅", emptyNote("No tasks were assigned.")));
   }
 
-  // --- Deadlines ---
+  // Deadlines
   if (data.deadlines.length) {
     const items = data.deadlines.map((d) => `
-      <div class="pill deadline">
-        <span class="pill-dot" aria-hidden="true"></span>
-        <span class="pill-main">${escapeHtml(d.what)}</span>
-        <span class="pill-when">${escapeHtml(d.when)}</span>
-      </div>`).join("");
-    parts.push(section({ id: "deadlines", title: "Deadlines", icon: "⏰", count: data.deadlines.length, filter: "deadlines",
-      body: `<div class="pill-list">${items}</div>` }));
+      <div class="pill deadline">${escapeHtml(d.what)} —
+        <span class="when">${escapeHtml(d.when)}</span></div>`).join("");
+    parts.push(group("Deadlines", "⏰", `<div class="pill-list">${items}</div>`));
   } else {
-    parts.push(section({ id: "deadlines", title: "Deadlines", icon: "⏰", count: 0, filter: "deadlines",
-      body: emptyNote("No deadlines mentioned.") }));
+    parts.push(group("Deadlines", "⏰", emptyNote("No deadlines mentioned.")));
   }
 
-  // --- Mentions ---
+  // Mentions
   if (data.mentions.length) {
     const items = data.mentions.map((m) => `
-      <div class="pill mention">
-        <span class="pill-key">${escapeHtml(m.who)}</span>
-        <span class="pill-main">${escapeHtml(m.context)}</span>
-      </div>`).join("");
-    parts.push(section({ id: "mentions", title: "Mentions of you", icon: "👋", count: data.mentions.length, filter: "mentions",
-      body: `<div class="pill-list">${items}</div>` }));
+      <div class="pill mention"><strong>${escapeHtml(m.who)}</strong> — ${escapeHtml(m.context)}</div>`).join("");
+    parts.push(group("Mentions of you", "👋", `<div class="pill-list">${items}</div>`));
   } else {
-    parts.push(section({ id: "mentions", title: "Mentions of you", icon: "👋", count: 0, filter: "mentions",
-      body: emptyNote("You weren't directly mentioned.") }));
+    parts.push(group("Mentions of you", "👋", emptyNote("You weren't directly mentioned.")));
   }
 
-  // --- Decisions ---
+  // Decisions
   if (data.decisions.length) {
-    const items = data.decisions.map((d) =>
-      `<li class="deci"><span class="deci-dot" aria-hidden="true">✓</span><span>${escapeHtml(d)}</span></li>`).join("");
-    parts.push(section({ id: "decisions", title: "Decisions made", icon: "🤝", count: data.decisions.length, filter: "",
-      body: `<ul class="deci-list">${items}</ul>` }));
+    const items = data.decisions.map((d) => `<li class="list-item"><div class="item-body"><div class="item-main">${escapeHtml(d)}</div></div></li>`).join("");
+    parts.push(group("Decisions made", "🤝", `<ul class="list">${items}</ul>`));
   } else {
-    parts.push(section({ id: "decisions", title: "Decisions made", icon: "🤝", count: 0, filter: "",
-      body: emptyNote("No clear decisions were made.") }));
+    parts.push(group("Decisions made", "🤝", emptyNote("No clear decisions found.")));
   }
 
-  // --- Key messages ---
+  // Key messages
   if (data.keyMessages.length) {
     const items = data.keyMessages.map((k) => `
-      <li class="quote">
-        <p>${escapeHtml(k.text)}</p>
-        <div class="cite"><span class="cite-from">${escapeHtml(k.from)}</span> · ${escapeHtml(k.why)}</div>
+      <li class="list-item">
+        <div class="item-body">
+          <div class="item-main">"${escapeHtml(k.text)}"</div>
+          <div class="item-meta">— ${escapeHtml(k.from)} · ${escapeHtml(k.why)}</div>
+        </div>
       </li>`).join("");
-    parts.push(section({ id: "messages", title: "Key messages", icon: "💬", count: data.keyMessages.length, filter: "",
-      body: `<ul class="quote-list">${items}</ul>` }));
+    parts.push(group("Key messages", "💬", `<ul class="list">${items}</ul>`));
   }
 
   return parts.join("");
 }
 
-// Plain-text export for the Copy button.
+// Build a plain-text version of the analysis for the "Copy" button.
 export function resultsToText(data) {
-  const L = [];
-  L.push("WHAT YOU MISSED", "===============", "");
-  L.push(`Overall: ${data.priority.toUpperCase()}`, "");
-  L.push("SUMMARY", data.summary, "");
+  const lines = [];
+  lines.push("WHAT YOU MISSED\n===============\n");
+  lines.push(`Overall priority: ${data.priority.toUpperCase()}\n`);
+  lines.push(`SUMMARY\n${data.summary}\n`);
   if (data.actionItems.length) {
-    L.push("ACTION ITEMS");
-    data.actionItems.forEach((a) => L.push(`  [ ] (${a.priority}) ${a.text} — ${a.owner}`));
-    L.push("");
+    lines.push("ACTION ITEMS");
+    data.actionItems.forEach((a) => lines.push(`  - [${a.priority}] ${a.text} (owner: ${a.owner})`));
+    lines.push("");
   }
   if (data.deadlines.length) {
-    L.push("DEADLINES");
-    data.deadlines.forEach((d) => L.push(`  • ${d.what} — ${d.when}`));
-    L.push("");
+    lines.push("DEADLINES");
+    data.deadlines.forEach((d) => lines.push(`  - ${d.what} — ${d.when}`));
+    lines.push("");
   }
   if (data.mentions.length) {
-    L.push("MENTIONS OF YOU");
-    data.mentions.forEach((m) => L.push(`  • ${m.who}: ${m.context}`));
-    L.push("");
+    lines.push("MENTIONS");
+    data.mentions.forEach((m) => lines.push(`  - ${m.who}: ${m.context}`));
+    lines.push("");
   }
   if (data.decisions.length) {
-    L.push("DECISIONS");
-    data.decisions.forEach((d) => L.push(`  • ${d}`));
-    L.push("");
+    lines.push("DECISIONS");
+    data.decisions.forEach((d) => lines.push(`  - ${d}`));
+    lines.push("");
   }
-  return L.join("\n");
+  return lines.join("\n");
 }
 
 export { escapeHtml };
