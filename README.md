@@ -80,6 +80,26 @@ missedit/
 That keeps every file short, readable, and testable — and makes the data flow obvious:
 `app.js → api-client.js → api/analyze.js → Gemini → render.js`.
 
+## ✅ Quality, accessibility & security
+
+- **Accessibility (WCAG):** semantic landmarks (`<main>`, `<header>`, `<nav>`-style header,
+  `<article>` per result group), a skip link, labelled form controls, `aria-label`s on
+  icon-only buttons, `role="status"`/`aria-live` for loading and results, visible keyboard
+  focus rings, meaning never carried by color alone (priority is also a text badge), and
+  `prefers-reduced-motion` support.
+- **Security:** the Gemini API key lives only in a server-side env var — it's never in the
+  client bundle or git history (`.gitignore` blocks `.env*`). Every piece of user- and
+  AI-supplied text is HTML-escaped before rendering, which blocks XSS; this is covered by
+  automated tests.
+- **Resilience:** the API handles missing key, model-not-found (with fallback), rate limits
+  (HTTP 429), malformed model output, and a 25-second timeout — all surfaced as friendly
+  messages instead of a crash or a frozen UI (skeleton loaders show progress).
+- **Tests:** `node test/analyze.test.mjs` runs 13 checks (JSON parsing, normalization, and
+  XSS escaping) with no dependencies.
+- **Edge cases verified:** long chats (60+ messages), small-talk chats with no action items
+  (renders a clean "no tasks" state), responsive mobile layout (no horizontal overflow),
+  and a network check confirming nothing is sent anywhere except the app's own `/api/analyze`.
+
 ## ▶️ Run it locally
 
 You need [Node.js](https://nodejs.org) installed.

@@ -194,12 +194,27 @@ function setBusy(busy) {
   analyzeBtn.querySelector(".btn-spinner").hidden = !busy;
 }
 
+const MAX_CHARS = 40000; // keep in sync with the server-side guard
+
+function setLoadingNote(msg) {
+  const note = loadingState.querySelector(".loading-note");
+  if (note) note.textContent = msg;
+}
+
 analyzeBtn.addEventListener("click", async () => {
   inputError.hidden = true;
   const text = conversation.value.trim();
 
+  // Client-side validation: block empty and over-long input before it ever
+  // hits the API, so we never waste a call or blow the model's token limit.
   if (text.length < 10) {
     inputError.textContent = "Please paste a conversation first (or load a sample).";
+    inputError.hidden = false;
+    conversation.focus();
+    return;
+  }
+  if (text.length > MAX_CHARS) {
+    inputError.textContent = `That's a bit long (${text.length.toLocaleString()} chars). Please trim it to under ${MAX_CHARS.toLocaleString()} characters.`;
     inputError.hidden = false;
     conversation.focus();
     return;
@@ -207,9 +222,10 @@ analyzeBtn.addEventListener("click", async () => {
 
   setBusy(true);
   showLoading();
+  setLoadingNote("Reading the conversation with AI…");
 
   try {
-    const data = await analyzeConversation(text, yourName.value.trim());
+    const data = await analyzeConversation(text, yourName.value.trim(), setLoadingNote);
     showResults(data);
   } catch (err) {
     resetResults();

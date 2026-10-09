@@ -17,11 +17,14 @@ function escapeHtml(str) {
 const PRIORITY_LABEL = { high: "High priority", medium: "Worth a look", low: "Low priority" };
 const PRIORITY_ICON = { high: "🔴", medium: "🟠", low: "🟢" };
 
+// Each result group is a self-contained section of the report, so it's an
+// <article> labelled by its own heading — correct landmark semantics for AT.
 function group(title, icon, innerHtml) {
-  return `<div class="result-group">
-    <h3><span aria-hidden="true">${icon}</span> ${escapeHtml(title)}</h3>
+  const headingId = "grp-" + title.toLowerCase().replace(/[^a-z]+/g, "-");
+  return `<article class="result-group" aria-labelledby="${headingId}">
+    <h3 id="${headingId}"><span aria-hidden="true">${icon}</span> ${escapeHtml(title)}</h3>
     ${innerHtml}
-  </div>`;
+  </article>`;
 }
 
 function emptyNote(text) {
@@ -49,7 +52,7 @@ export function renderResults(data) {
         <span class="dot ${a.priority}" aria-hidden="true"></span>
         <div class="item-body">
           <div class="item-main">${escapeHtml(a.text)}
-            <span class="badge ${a.priority}">${escapeHtml(a.priority)}</span>
+            <span class="badge ${a.priority}">${escapeHtml(a.priority)} priority</span>
           </div>
           <div class="item-meta">Owner: ${escapeHtml(a.owner)}</div>
         </div>

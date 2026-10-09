@@ -92,4 +92,20 @@ test("keeps valid full payload intact", () => {
   assert.equal(n.deadlines[0].when, "Oct 15");
 });
 
+// --- Security: the real escapeHtml from render.js must neutralise injection.
+const { escapeHtml } = await import("../render.js");
+console.log("escapeHtml (XSS protection):");
+test("escapes angle brackets so <script> can't execute", () => {
+  const out = escapeHtml('<script>alert("x")</script>');
+  assert.ok(!out.includes("<script>"), "raw <script> tag leaked through");
+  assert.ok(out.includes("&lt;script&gt;"), "angle brackets not escaped");
+});
+test("escapes quotes and ampersands", () => {
+  assert.equal(escapeHtml(`"&'`), "&quot;&amp;&#39;");
+});
+test("escapes an img onerror payload", () => {
+  const out = escapeHtml('<img src=x onerror=alert(1)>');
+  assert.ok(!out.includes("<img"), "raw <img> tag leaked through");
+});
+
 console.log(`\n${passed} checks passed.`);

@@ -127,18 +127,29 @@ export default async function handler(req, res) {
   for (const model of models) {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-      const r = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.2,            // low = consistent, factual, less hallucination
-            responseMimeType: "application/json",
-            maxOutputTokens: 2048,
-          },
-        }),
-      });
+
+      // Abort a hung request after 25s so the UI never waits forever.
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 25000);
+
+      let r;
+      try {
+        r = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.2,          // low = consistent, factual, less hallucination
+              responseMimeType: "application/json",
+              maxOutputTokens: 2048,
+            },
+          }),
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
 
       if (!r.ok) {
         const errText = await r.text();
